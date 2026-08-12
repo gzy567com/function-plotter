@@ -391,7 +391,12 @@
   function normalizeExpr(expr) {
     // 欧拉常数：解析器（math-codegen）认大写 E（Math.E），小写 e 是未定义符号会报错。
     // 把表达式中独立的 e 统一替换成 E，这样 e^x 与 E^x 都能正常绘制。
-    return expr.replace(/\be\b/g, 'E');
+    expr = expr.replace(/\be\b/g, 'E');
+    // 自然对数：解析器的作用域继承自 Math，而 Math 没有 ln 成员（只有 log=自然对数、
+    // log10、log2）。ln 与 log 同义（都是 Math.log），把独立的 ln 替换成 log，
+    // 这样 ln(x)、ln(abs(x))、2*ln(x) 等都能正常绘制。
+    expr = expr.replace(/\bln\b/g, 'log');
+    return expr;
   }
 
   function addFunction(raw) {
