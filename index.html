@@ -194,7 +194,10 @@
   .plot-wrap .axis .tick line { stroke: var(--grid); opacity: 1; }
   .plot-wrap .axis .domain { stroke: var(--axis); }
   .plot-wrap .axis .tick text { fill: var(--muted); font-size: 11px; }
-  .plot-wrap .origin { stroke: var(--axis); opacity: 1; }
+  /* 原点处的主轴线（x=0、y=0），即 x/y 轴本体：加深加粗以区别于网格线 */
+  .plot-wrap .origin { stroke: var(--text-2); stroke-width: 1.5; opacity: 1; }
+  /* 坐标轴名称 x / y */
+  .plot-wrap .axis-label { fill: var(--text-2); font-size: 15px; font-weight: 600; font-style: italic; }
   /* 函数曲线 */
   .plot-wrap path.line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   /* 坐标提示 */
@@ -211,7 +214,7 @@
 <div class="app">
   <header class="app-header">
     <h1>函数图绘制器</h1>
-    <p class="hint">支持 sin cos tan ln log sqrt abs 等 · 欧拉常数用 E（如 E^x）· 乘号可省略（2x）· 滚轮缩放 · 拖拽平移</p>
+    <p class="hint">支持 sin cos tan ln log sqrt abs 等 · 欧拉常数 e 或 E（如 e^x）· 乘号可省略（2x）· 滚轮缩放 · 拖拽平移</p>
   </header>
   <div class="layout">
     <aside class="panel">
@@ -305,7 +308,7 @@
     tmp.style.cssText = 'position:fixed;left:-9999px;top:0;';
     document.body.appendChild(tmp);
     try {
-      functionPlot({ target: tmp, width: 200, height: 200, data: [{ fn: expr }] });
+      functionPlot({ target: tmp, width: 200, height: 200, data: [{ fn: expr, graphType: 'polyline', sampler: 'builtIn' }] });
       return true;
     } catch (e) {
       return false;
@@ -333,10 +336,13 @@
       grid: true,
       zoom: { enable: true },
       tip: { xLine: true, yLine: true },
-      xAxis: { domain: xDomain.slice() },
-      yAxis: { domain: yDomain.slice() },
+      xAxis: { domain: xDomain.slice(), label: 'x' },
+      yAxis: { domain: yDomain.slice(), label: 'y' },
       data: functions.map(function (f) {
-        return { fn: f.fn, color: f.color, lineWidth: 2 };
+        // graphType 必须用 polyline + builtIn 数值采样：function-plot 1.25.4 的
+        // interval 采样器对指数含变量的幂（E^x、2^x、x^x…）会返回空区间，
+        // 导致整条曲线不显示（这是该版本的库 bug）。
+        return { fn: f.fn, color: f.color, lineWidth: 2, graphType: 'polyline', sampler: 'builtIn' };
       })
     });
     // 缩放/平移实际应用后同步范围输入框：
@@ -382,8 +388,14 @@
     });
   }
 
+  function normalizeExpr(expr) {
+    // 欧拉常数：解析器（math-codegen）认大写 E（Math.E），小写 e 是未定义符号会报错。
+    // 把表达式中独立的 e 统一替换成 E，这样 e^x 与 E^x 都能正常绘制。
+    return expr.replace(/\be\b/g, 'E');
+  }
+
   function addFunction(raw) {
-    const expr = (raw || '').trim().replace(/\s+/g, '');
+    const expr = normalizeExpr((raw || '').trim().replace(/\s+/g, ''));
     if (!expr) return;
     if (!isValid(expr)) {
       errorEl.textContent = '无法解析「' + expr + '」，请检查语法（示例：x^2、sin(x)、E^x）';
